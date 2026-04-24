@@ -31,10 +31,6 @@ spec:
           limits:
             cpu: "500m"
             memory: "512Mi"
-        securityContext:
-          runAsNonRoot: true
-          runAsUser: 999
-          allowPrivilegeEscalation: false
         volumeMounts:
         - name: mongodb-storage
           mountPath: /data/db
