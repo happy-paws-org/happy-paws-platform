@@ -60,6 +60,11 @@ jobs:
         env:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ github.event.repository.name }}
+            -Dsonar.projectName=${{ github.event.repository.name }}
+            -Dsonar.sources=src
 
       - name: Snyk Scan
         uses: snyk/actions/node@master
