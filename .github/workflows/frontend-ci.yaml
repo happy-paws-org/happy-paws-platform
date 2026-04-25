@@ -10,10 +10,6 @@ on:
         required: false
         type: string
         default: "20"
-      dockerfile:
-        required: false
-        type: string
-        default: Dockerfile
 
 jobs:
   ci:
@@ -27,35 +23,25 @@ jobs:
       IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set Tag Variables
+      - name: Set Image Tag
         run: |
-          echo "IMAGE_TAG=sha-${GITHUB_SHA::7}" >> $GITHUB_ENV
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ inputs.node_version }}
-          cache: npm
-
-      - name: Install Dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            echo "IMAGE_TAG=v1.0.${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
           else
-            npm install
+            echo "IMAGE_TAG=sha-${GITHUB_SHA::7}" >> $GITHUB_ENV
           fi
 
-      - name: Run Tests
-        run: |
-          npm test -- --watch=false || echo "No tests configured"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
 
-      - name: Build Frontend
-        run: npm run build
+      - run: npm install
+      - run: npm test || true
+      - run: npm run build
 
-      - name: Generate Sonar Config
+      - name: Sonar Config
         run: |
           echo "sonar.projectKey=${GITHUB_REPOSITORY_OWNER}:${GITHUB_REPOSITORY##*/}" > sonar-project.properties
           echo "sonar.projectName=${GITHUB_REPOSITORY##*/}" >> sonar-project.properties
@@ -73,37 +59,16 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-      - name: Build Docker Image
-        run: |
-          docker build -f ${{ inputs.dockerfile }} \
-          -t $IMAGE_NAME:$IMAGE_TAG .
+      - run: docker build -t $IMAGE_NAME:$IMAGE_TAG .
 
       - name: Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
-          format: table
-          exit-code: 1
           severity: HIGH,CRITICAL
+          exit-code: 1
 
       - name: Login GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Push SHA Image
-        run: docker push $IMAGE_NAME:$IMAGE_TAG
-
-      - name: Failure Email
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: CI Failed - ${{ inputs.service_name }}
-          to: ${{ secrets.ALERT_EMAIL }}
-          from: ${{ secrets.EMAIL_USERNAME }}
-          body: |
-            Frontend CI failed for ${{ inputs.service_name }}
-            Repo: ${{ github.repository }}
-            Commit: ${{ github.sha }}
+      - run: docker push $IMAGE_NAME:$IMAGE_TAG
