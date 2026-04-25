@@ -55,6 +55,12 @@ jobs:
       - name: Build Frontend
         run: npm run build
 
+      - name: Generate Sonar Config
+        run: |
+          echo "sonar.projectKey=${GITHUB_REPOSITORY}" > sonar-project.properties
+          echo "sonar.projectName=${GITHUB_REPOSITORY##*/}" >> sonar-project.properties
+          echo "sonar.sources=src" >> sonar-project.properties
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v2
         env:
