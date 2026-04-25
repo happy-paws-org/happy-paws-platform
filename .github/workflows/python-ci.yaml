@@ -31,8 +31,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set Tag Variables
-        run: |
-          echo "IMAGE_TAG=sha-${GITHUB_SHA::7}" >> $GITHUB_ENV
+        run: echo "IMAGE_TAG=sha-${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -77,22 +76,23 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-      - name: Prepare Build Context
+      - name: Prepare Docker Build Context
         run: |
-          mkdir -p backend/${{ inputs.service_name }}
-          rsync -av --exclude backend ./ backend/${{ inputs.service_name }}/
+          mkdir -p buildctx/backend/${{ inputs.service_name }}
+          cp -r . buildctx/backend/${{ inputs.service_name }}/
+          cp Dockerfile buildctx/Dockerfile
 
       - name: Build Docker Image
         run: |
-          docker build -f ${{ inputs.dockerfile }} \
-          -t $IMAGE_NAME:$IMAGE_TAG .
+          docker build -f buildctx/Dockerfile \
+          -t $IMAGE_NAME:$IMAGE_TAG buildctx
 
       - name: Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
           format: table
-          exit-code: 0
+          exit-code: 1
           severity: HIGH,CRITICAL
 
       - name: Login GHCR
@@ -100,19 +100,3 @@ jobs:
 
       - name: Push SHA Image
         run: docker push $IMAGE_NAME:$IMAGE_TAG
-
-      - name: Failure Email
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: CI Failed - ${{ inputs.service_name }}
-          to: ${{ secrets.ALERT_EMAIL }}
-          from: ${{ secrets.EMAIL_USERNAME }}
-          body: |
-            Python CI failed for ${{ inputs.service_name }}
-            Repo: ${{ github.repository }}
-            Commit: ${{ github.sha }}
