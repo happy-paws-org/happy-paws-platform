@@ -57,7 +57,7 @@ jobs:
 
       - name: Generate Sonar Config
         run: |
-          echo "sonar.projectKey=${GITHUB_REPOSITORY}" > sonar-project.properties
+          echo "sonar.projectKey=${GITHUB_REPOSITORY_OWNER}:${GITHUB_REPOSITORY##*/}" > sonar-project.properties
           echo "sonar.projectName=${GITHUB_REPOSITORY##*/}" >> sonar-project.properties
           echo "sonar.sources=src" >> sonar-project.properties
 
