@@ -77,6 +77,11 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
+      - name: Prepare Build Context
+        run: |
+          mkdir -p backend/${{ inputs.service_name }}
+          rsync -av --exclude backend ./ backend/${{ inputs.service_name }}/
+
       - name: Build Docker Image
         run: |
           docker build -f ${{ inputs.dockerfile }} \
